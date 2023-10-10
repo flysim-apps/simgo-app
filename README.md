@@ -1,6 +1,6 @@
 # SimGo Connect Application 
 
-> Note: MSFS shoulbe running before run this application
+> Note: MSFS should be running before run this application
 
 An example of SimGo Application integration.
 
