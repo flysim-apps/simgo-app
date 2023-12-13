@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"flag"
@@ -23,12 +24,12 @@ import (
 var appContent embed.FS
 
 type Report struct {
-	Title     string  `json:"title" name:"TITLE" unit:"String"`
-	Altitude  float64 `json:"alt" name:"INDICATED ALTITUDE" unit:"feet"`
-	Latitude  float64 `json:"lat" name:"PLANE LATITUDE" unit:"degrees"`
-	Longitude float64 `json:"lon" name:"PLANE LONGITUDE" unit:"degrees"`
-	Heading   float64 `json:"hdg" name:"PLANE HEADING DEGREES MAGNETIC" unit:"degrees"`
-	Airspeed  float64 `json:"spd" name:"AIRSPEED TRUE" unit:"knot"`
+	Title    string  `json:"title"`
+	Agl      int     `json:"alt"`
+	Lat      float64 `json:"lat"`
+	Lon      float64 `json:"lon"`
+	Heading  float64 `json:"hdg"`
+	Airspeed int     `json:"spd"`
 }
 
 type Message struct {
@@ -44,25 +45,48 @@ func main() {
 	appPortFlag := flag.String("appPort", "5000", "application port")
 	flag.Parse()
 
-	sim := simgo.NewSimGo(logger)
+	sim := simgo.NewSimGo(logger, simgo.FSUIPC)
 
 	if err := sim.StartWebSocket(":" + *wsPortFlag); err != nil {
 		panic(err.Error())
 	}
 
-	sim.TrackWithRecover("simgo", Report{}, 5, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := sim.FSUIPC(ctx, "ws://localhost:2048/fsuipc/"); err != nil {
+		panic("Unable to establish websocket connection: " + err.Error())
+	}
+
+	if err := sim.OffsetPolling("event", simgo.Offsets{}, 1000); err != nil {
+		sim.Logger.Errorf("Failed to obtain polling: %s", err.Error())
+	}
+	if err := sim.Payload(10000); err != nil {
+		sim.Logger.Errorf("Failed to obtain payload: %s", err.Error())
+	}
+
+	eventChan := make(chan interface{})
+	payloadChan := make(chan interface{})
+
+	sim.ReadData("event", simgo.Report{}, eventChan, payloadChan)
 
 	go func() {
 		for {
 			select {
-			case result := <-sim.TrackEvent:
+			case result := <-eventChan:
+				logger.Debugf("Event: %+v", result)
 				pkt := &Message{
 					Event: "track",
-					Data:  result.(Report),
+					Data:  convert(result.(simgo.Report)),
 					Time:  time.Now(),
 				}
 				buf, _ := json.Marshal(pkt)
 				sim.Socket.BroadcastByte(buf)
+			case result := <-payloadChan:
+				logger.Debugf("Payload: %+v", result)
+			case err := <-sim.Error:
+				logger.Errorf("Track failed: %s", err.Error())
+				return
 			}
 		}
 	}()
@@ -160,4 +184,22 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	statics, err := fs.Sub(h.staticFS, h.staticPath)
 	// otherwise, use http.FileServer to serve the static dir
 	http.FileServer(http.FS(statics)).ServeHTTP(w, r)
+}
+
+func convert(payload simgo.Report) Report {
+	return Report{
+		Agl:      payload.Agl,
+		Lat:      payload.Lat,
+		Lon:      payload.Lon,
+		Heading:  calcHeadingMagvar(payload.Heading, payload.MagVar),
+		Airspeed: payload.AirspeedTrue,
+		Title:    payload.Title,
+	}
+}
+
+func calcHeadingMagvar(heading float64, magvar float64) float64 {
+	if int64(heading) == 0 {
+		heading = heading + 360
+	}
+	return heading + (magvar * -1)
 }
