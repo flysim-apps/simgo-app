@@ -1,14 +1,16 @@
 # SimGo Connect Application 
 
-> Note: MSFS should be running before run this application
+> Note: Simulator and FSUIPC WebSocket Server should be running before run this application. 
 
 An example of SimGo Application integration.
 
+[FSUIPC WebSocket Server](http://fsuipcwebsockets.paulhenty.com/)
+
 ## Parameters
 
-`wsPort` - port for web socket server (default 4500)
+`wsPort` - port for web socket server (default 33500)
 
-`appPort` - port of live map application (default 5000)
+`appPort` - port of live map application (default 34500)
 
 ## Getting Started
 
@@ -38,4 +40,4 @@ Or simply un pre-build copy:
 SimGo.exe --wsPort=35600 --appPort=35700
 ```
 
-This will run SimGo App, connect to MSFS 2020 and get some data from the simulator and put itr on the map.
+This will run SimGo App, connect to MSFS 2020/X-Plane 11/12 or Prepar3D and get some data from the simulator and put it on the map.

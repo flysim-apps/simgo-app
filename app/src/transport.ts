@@ -2,20 +2,28 @@ import { loadMapData } from "features/maps";
 import { useDispatch } from "react-redux";
 import "whatwg-fetch";
 
-let wsPort = 4050;
+let wsPort = 33500;
+let connectionOpened = false;
 
 if (window.location.hash.indexOf('wsPort') > 0) {
   wsPort = parseInt(window.location.hash.replace(/#wsPort/gi, ''));
   console.warn("WS Port has been overriden: ", wsPort);
 }
 
+export const connectSocket = (dispatch: any) => {
+  if (connectionOpened) return;
 
-const connectToSocket = (dispatch: any) => {
-  const ws = new WebSocket(
-    `${
-      process.env.REACT_APP_SOCKET_ADDR?.trim() || "ws://localhost:" + wsPort
-    }/socket.io`
-  );
+  const ws = new WebSocket(`${
+    process.env.REACT_APP_SOCKET_ADDR?.trim() || "ws://localhost:" + wsPort
+  }/socket.io`);
+
+  connectionOpened = true;
+  
+  ws.onclose = () => {
+    console.warn('Web socket reconnect');
+    connectSocket(dispatch);
+  };
+
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
@@ -27,11 +35,6 @@ const connectToSocket = (dispatch: any) => {
       console.error("onmessage error: ", e);
     }
   };
-  ws.onclose = () => {
-    console.warn("Web socket reconnect");
-    connectToSocket(dispatch);
-  };
-  return ws;
-};
+}
 
-export const useSocket = () => connectToSocket(useDispatch());
+export const useSocket = () => connectSocket(useDispatch());

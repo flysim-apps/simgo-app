@@ -41,8 +41,8 @@ type Message struct {
 var logger = logging.MustGetLogger("simgo")
 
 func main() {
-	wsPortFlag := flag.String("wsPort", "4050", "web socket port")
-	appPortFlag := flag.String("appPort", "5000", "application port")
+	wsPortFlag := flag.String("wsPort", "33500", "web socket port")
+	appPortFlag := flag.String("appPort", "34500", "application port")
 	flag.Parse()
 
 	sim := simgo.NewSimGo(logger, simgo.FSUIPC)
