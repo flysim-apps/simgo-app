@@ -6,8 +6,9 @@ An example of SimGo Application integration.
 
 ## Parameters
 
-wsPort - port for web socket server (default 4500)
-appPort - port of live map application (default 5000)
+`wsPort` - port for web socket server (default 4500)
+
+`appPort` - port of live map application (default 5000)
 
 ## Getting Started
 
